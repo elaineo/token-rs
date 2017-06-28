@@ -1,0 +1,7 @@
+[package]
+name = "token"
+version = "0.1.0"
+authors = ["elaineo <elaine.ou@gmail.com>"]
+
+[dependencies]
+nickel = "*"
