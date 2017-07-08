@@ -12,7 +12,7 @@ extern crate leveldb;
 use bincode::{serialize, deserialize, Infinite};
 
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use leveldb::database::Database;
 use leveldb::kv::KV;
@@ -38,13 +38,13 @@ fn main() {
     let mut server = Nickel::new();
 
     let path = Path::new(DEFAULT_DIR);
-    let db = Arc::new(Mutex::new(TokenDB::new(path)));
+    let db = Arc::new(TokenDB::new(path));
     let read_db = db.clone();
 
     server.post("/", middleware! { |req, res| 
         let raw = req.raw_body();
         let deposit = serde_json::from_str::<SSDeposit>(&raw).unwrap();
-        db.lock().unwrap().write_deposit(&deposit);
+        db.write_deposit(&deposit);
         
         format!("Deposit Received {} {}", deposit.address, deposit.status)
     });
@@ -54,7 +54,7 @@ fn main() {
         let key: i32 = id.parse()
                     .expect("Should be i32");
 
-        let data = read_db.lock().unwrap().read_deposit(key);
+        let data = read_db.read_deposit(key);
         //deserialize(&data.unwrap()).unwrap()
     });
 
@@ -93,7 +93,7 @@ impl TokenDB {
       }
   }
   
-  pub fn write_deposit(&mut self, deposit: &SSDeposit) -> () {
+  pub fn write_deposit(&self, deposit: &SSDeposit) -> () {
       let write_opts = WriteOptions::new();
       // turn into buffer
       let bytes: Vec<u8> = serialize(deposit, Infinite).unwrap();
@@ -103,7 +103,7 @@ impl TokenDB {
       };    
   }
 
-  pub fn read_deposit(&mut self, key: i32) -> Option<Vec<u8>> {
+  pub fn read_deposit(&self, key: i32) -> Option<Vec<u8>> {
       let read_opts = ReadOptions::new();
       let res = self.db.get(read_opts, key);
       let data = match res {
