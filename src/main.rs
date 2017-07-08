@@ -10,13 +10,21 @@ extern crate bincode;
 extern crate leveldb;
 
 use bincode::{serialize, deserialize, Infinite};
+
 use std::path::Path;
+use std::sync::{Arc, Mutex};
+
 use leveldb::database::Database;
 use leveldb::kv::KV;
 use leveldb::iterator::Iterable;
 use leveldb::options::{Options,WriteOptions,ReadOptions};
 
-use nickel::Nickel;
+use nickel::status::StatusCode;
+use nickel::{Nickel, HttpRouter};
+mod raw_body;
+use self::raw_body::*;
+
+const DEFAULT_DIR: &'static str = "./tokendb";
 
 #[derive(Serialize, Deserialize)]
 pub struct SSDeposit {
@@ -26,15 +34,31 @@ pub struct SSDeposit {
     id: usize,
 }
 
-
-const DEFAULT_DIR: &'static str = "./tokendb";
-
 fn main() {
     let mut server = Nickel::new();
 
     let path = Path::new(DEFAULT_DIR);
-    let tokenDB = TokenDB::new(path);
+    let db = Arc::new(Mutex::new(TokenDB::new(path)));
+    let read_db = db.clone();
 
+    server.post("/", middleware! { |req, res| 
+        let raw = req.raw_body();
+        let deposit = serde_json::from_str::<SSDeposit>(&raw).unwrap();
+        db.lock().unwrap().write_deposit(&deposit);
+        
+        format!("Deposit Received {} {}", deposit.address, deposit.status)
+    });
+
+    server.get("/:id", middleware! { |req|
+        let id = req.param("id").unwrap();
+        let key: i32 = id.parse()
+                    .expect("Should be i32");
+
+        let data = read_db.lock().unwrap().read_deposit(key);
+        //deserialize(&data.unwrap()).unwrap()
+    });
+
+    /*
     server.utilize(router! {
         get "**" => |_req, _res| {
             let entry = SSDeposit {
@@ -46,7 +70,7 @@ fn main() {
             tokenDB.write_deposit(&entry);
             "Okay"
         }
-    });
+    });*/
 
     server.listen("127.0.0.1:8675");
 
@@ -69,7 +93,7 @@ impl TokenDB {
       }
   }
   
-  pub fn write_deposit(&self, deposit: &SSDeposit) -> () {
+  pub fn write_deposit(&mut self, deposit: &SSDeposit) -> () {
       let write_opts = WriteOptions::new();
       // turn into buffer
       let bytes: Vec<u8> = serialize(deposit, Infinite).unwrap();
@@ -79,14 +103,15 @@ impl TokenDB {
       };    
   }
 
-  pub fn read_deposit(&self, key: i32) -> SSDeposit {
+  pub fn read_deposit(&mut self, key: i32) -> Option<Vec<u8>> {
       let read_opts = ReadOptions::new();
       let res = self.db.get(read_opts, key);
       let data = match res {
         Ok(data) => { data },
         Err(e) => { panic!("failed reading data: {:?}", e) }
       };
-      deserialize(&data.unwrap()).unwrap()
+      data
+      // deserialize(&data.unwrap()).unwrap(),
   } 
 
 }
