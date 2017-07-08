@@ -19,7 +19,7 @@ use leveldb::kv::KV;
 use leveldb::iterator::Iterable;
 use leveldb::options::{Options,WriteOptions,ReadOptions};
 
-use nickel::{Nickel, HttpRouter, NickelError, Request, Action};
+use nickel::{Nickel, HttpRouter};
 use nickel::status::StatusCode;
 
 mod raw_body;
@@ -69,7 +69,7 @@ fn main() {
         }
     });
 
-    server.get("/all", middleware! { |req|
+    server.get("/all", middleware! {
         let mut last: Option<usize> = None;
         loop {
             match all_db.dump() {
