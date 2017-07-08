@@ -52,10 +52,18 @@ impl TokenDB {
       data
   } 
 
-  pub fn dump(&self) -> Option<Vec<u8>> {
+  pub fn dump(&self) -> Vec<Vec<u8>> {
       let read_opts = ReadOptions::new();
       let mut iter = self.db.value_iter(read_opts);
-      let data = iter.next();
+      let mut data = vec![];
+      loop {
+          match iter.next() {
+              Some(d) => { 
+                  data.push(d);
+                },
+                _ => { break; }
+          };
+      };
       data
   } 
 

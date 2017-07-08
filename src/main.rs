@@ -60,21 +60,10 @@ fn main() {
     });
 
     server.get("/all", middleware! {
-        let mut last: Option<usize> = None;
-        loop {
-            match all_db.dump() {
-                Some(data) => { 
-                    let deposit: SSDeposit = deserialize(&data)
-                                    .expect("Corrupted entry in db");
-                    if Some(deposit.id) == last {
-                        break;
-                    }
-                    last = Some(deposit.id);
-                    println!("{}", serde_json::to_string(&deposit).unwrap());
-                },
-                _ => { break; }
-            };
-        }
+        let data = all_db.dump();
+        let deposit: Vec<SSDeposit> = data.iter().map(|x| deserialize(&x).unwrap()).collect();
+        
+        format!("{}", serde_json::to_string(&deposit).unwrap())
 
     });
 
