@@ -19,7 +19,7 @@ use leveldb::kv::KV;
 use leveldb::iterator::Iterable;
 use leveldb::options::{Options,WriteOptions,ReadOptions};
 
-use nickel::{Nickel, HttpRouter};
+use nickel::{Nickel, HttpRouter, NickelError, Request, Action};
 use nickel::status::StatusCode;
 
 mod raw_body;
@@ -41,6 +41,7 @@ fn main() {
     let path = Path::new(DEFAULT_DIR);
     let db = Arc::new(TokenDB::new(path));
     let read_db = db.clone();
+    let all_db = db.clone();
 
     server.post("/", middleware! { |req, res| 
         let raw = req.raw_body();
@@ -50,21 +51,7 @@ fn main() {
         format!("Deposit Received {} {}", deposit.address, deposit.status)
     });
 
-    server.get("/:id", middleware! { |req|
-        let id = req.param("id").unwrap();
-        println!("id: {}", id);
-        let key: i32 = id.parse()
-                    .expect("Should be i32");
-
-        let data = read_db.read_deposit(key).unwrap(); 
-        let deposit: SSDeposit = deserialize(&data).unwrap();
-        match serde_json::to_string(&deposit) {
-            Ok(res) => { (StatusCode::Ok, res.to_string()) },
-            Err(e) => { (StatusCode::ImATeapot, e.to_string()) }
-        }
-    });
-
-    server.get("/all", middleware! { |req|
+    server.get("/key/:id", middleware! { |req|
         let id = req.param("id").unwrap();
         println!("id: {}", id);
         let key: i32 = id.parse()
@@ -75,11 +62,30 @@ fn main() {
 
         let deposit: SSDeposit = deserialize(&data)
             .expect("Corrupted entry in db");
-            
+
         match serde_json::to_string(&deposit) {
             Ok(res) => { (StatusCode::Ok, res.to_string()) },
-            Err(e) => { (StatusCode::ImATeapot, e.to_string()) }
+            Err(e) => { (StatusCode::NotFound, e.to_string()) }
         }
+    });
+
+    server.get("/all", middleware! { |req|
+        let mut last: Option<usize> = None;
+        loop {
+            match all_db.dump() {
+                Some(data) => { 
+                    let deposit: SSDeposit = deserialize(&data)
+                                    .expect("Corrupted entry in db");
+                    if Some(deposit.id) == last {
+                        break;
+                    }
+                    last = Some(deposit.id);
+                    println!("{}", serde_json::to_string(&deposit).unwrap());
+                },
+                _ => { break; }
+            };
+        }
+
     });
 
     server.listen("127.0.0.1:8675");
@@ -120,6 +126,13 @@ impl TokenDB {
         Ok(data) => { data },
         Err(e) => { panic!("failed reading data: {:?}", e) }
       };
+      data
+  } 
+
+  pub fn dump(&self) -> Option<Vec<u8>> {
+      let read_opts = ReadOptions::new();
+      let mut iter = self.db.value_iter(read_opts);
+      let data = iter.next();
       data
   } 
 
