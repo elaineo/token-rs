@@ -19,8 +19,9 @@ use leveldb::kv::KV;
 use leveldb::iterator::Iterable;
 use leveldb::options::{Options,WriteOptions,ReadOptions};
 
-use nickel::status::StatusCode;
 use nickel::{Nickel, HttpRouter};
+use nickel::status::StatusCode;
+
 mod raw_body;
 use self::raw_body::*;
 
@@ -51,26 +52,35 @@ fn main() {
 
     server.get("/:id", middleware! { |req|
         let id = req.param("id").unwrap();
+        println!("id: {}", id);
         let key: i32 = id.parse()
                     .expect("Should be i32");
 
-        let data = read_db.read_deposit(key);
-        //deserialize(&data.unwrap()).unwrap()
+        let data = read_db.read_deposit(key).unwrap(); 
+        let deposit: SSDeposit = deserialize(&data).unwrap();
+        match serde_json::to_string(&deposit) {
+            Ok(res) => { (StatusCode::Ok, res.to_string()) },
+            Err(e) => { (StatusCode::ImATeapot, e.to_string()) }
+        }
     });
 
-    /*
-    server.utilize(router! {
-        get "**" => |_req, _res| {
-            let entry = SSDeposit {
-                status: "new".to_string(),
-                address: "elaine".to_string(),
-                params: [].to_vec(),
-                id: 1,
-            };
-            tokenDB.write_deposit(&entry);
-            "Okay"
+    server.get("/all", middleware! { |req|
+        let id = req.param("id").unwrap();
+        println!("id: {}", id);
+        let key: i32 = id.parse()
+                    .expect("Failed to parse key");
+
+        let data = read_db.read_deposit(key)
+            .expect("Failed to lookup key");
+
+        let deposit: SSDeposit = deserialize(&data)
+            .expect("Corrupted entry in db");
+            
+        match serde_json::to_string(&deposit) {
+            Ok(res) => { (StatusCode::Ok, res.to_string()) },
+            Err(e) => { (StatusCode::ImATeapot, e.to_string()) }
         }
-    });*/
+    });
 
     server.listen("127.0.0.1:8675");
 
@@ -111,7 +121,6 @@ impl TokenDB {
         Err(e) => { panic!("failed reading data: {:?}", e) }
       };
       data
-      // deserialize(&data.unwrap()).unwrap(),
   } 
 
 }
