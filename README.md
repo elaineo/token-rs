@@ -1,3 +1,3 @@
-# token-rs
+# Tokenmint server
 
-Token server
+Database manager for custom tokens and altcoin payments
