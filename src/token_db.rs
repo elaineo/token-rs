@@ -10,7 +10,13 @@ use std::path::Path;
 #[derive(Serialize, Deserialize)]
 pub struct SSDeposit {
     pub status: String,
-    pub address: String,
+    pub address: String, // new ETC address
+    pub amount: String, // ETC amount
+    pub depositAddress: String,
+    pub depositAmount: String,
+    pub coinType: String,
+    pub orderId: String,
+    pub expiration: String,
     pub params: Vec<String>,
     pub id: usize,
 }

@@ -1,5 +1,7 @@
 extern crate serde;
 extern crate serde_json;
+extern crate gethrpc;
+extern crate shapeshift;
 
 #[macro_use] 
 extern crate nickel;
@@ -17,11 +19,17 @@ use std::sync::Arc;
 use nickel::{Nickel, HttpRouter};
 use nickel::status::StatusCode;
 
+use std::thread;
+use std::time::Duration;
+
 mod raw_body;
 mod token_db;
 
 use raw_body::*;
 use token_db::{TokenDB, SSDeposit};
+
+use gethrpc::GethRPCClient;
+use shapeshift::ShapeshiftClient;
 
 const DEFAULT_DIR: &'static str = "./tokendb";
 
@@ -33,6 +41,18 @@ fn main() {
     let read_db = db.clone();
     let all_db = db.clone();
 
+    let client_addr = "https://mewapi.epool.io";
+    
+
+    let mut client = GethRPCClient::new(client_addr);
+    let mut ss_client = ShapeshiftClient::new();
+
+    /*
+        Receive deposit
+        Poll deposit status until expiry
+        Delete or update
+            Send tx if warranted
+    */
     server.post("/", middleware! { |req, res| 
         let raw = req.raw_body();
         let deposit = serde_json::from_str::<SSDeposit>(&raw).unwrap();
@@ -66,7 +86,18 @@ fn main() {
         format!("{}", serde_json::to_string(&deposit).unwrap())
 
     });
+   
+    thread::spawn(|| {
+        server.listen("127.0.0.1:8000");
+    });
 
-    server.listen("127.0.0.1:8675");
+    loop {
+        let x: String = client.client_version();
+        ss_client.get_status("19eGsLn2BBvmh4Mq2VbR1mUmfKGjfAavtT");
+
+        println!("x: {:?}", x);
+
+        std::thread::sleep(std::time::Duration::from_millis(1_000));
+    }
 
 }
