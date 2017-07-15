@@ -1,0 +1,15 @@
+[package]
+name = "shapeshift"
+version = "0.1.0"
+license = "Apache-2.0"
+authors = ["elaineo <elaine.ou@gmail.com>"]
+description = "shapeshift API wrapper."
+repository = "https://github.com/elaineo/token-rs"
+
+[dependencies]
+clap = "2.22"
+serde = "0.9"
+serde_derive = "0.9"
+serde_json = "0.9"
+hyper = "0.10.9"
+hyper-native-tls = "0.2.4"

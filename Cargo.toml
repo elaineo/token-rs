@@ -13,3 +13,4 @@ serde_json = "1.0"
 plugin = "0.2.6"
 typemap = "0.3.3"
 gethrpc = { path = './gethrpc' }
+shapeshift = { path = './shapeshift' }
