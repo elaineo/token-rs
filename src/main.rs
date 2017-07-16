@@ -29,7 +29,7 @@ use raw_body::*;
 use token_db::{TokenDB, SSDeposit};
 
 use gethrpc::GethRPCClient;
-use shapeshift::ShapeshiftClient;
+use shapeshift::{ShapeshiftClient, ShapeshiftStatus};
 
 const DEFAULT_DIR: &'static str = "./tokendb";
 
@@ -40,12 +40,14 @@ fn main() {
     let db = Arc::new(TokenDB::new(path));
     let read_db = db.clone();
     let all_db = db.clone();
+    let addr_db = db.clone();
 
     let client_addr = "https://mewapi.epool.io";
     
-
     let mut client = GethRPCClient::new(client_addr);
     let mut ss_client = ShapeshiftClient::new();
+
+    let x: String = client.client_version();
 
     /*
         Receive deposit
@@ -92,12 +94,15 @@ fn main() {
     });
 
     loop {
-        let x: String = client.client_version();
-        ss_client.get_status("19eGsLn2BBvmh4Mq2VbR1mUmfKGjfAavtT");
+        
+        let addrs = addr_db.dump_addrs();
+        let mut ss: ShapeshiftStatus;
+        for a in 0..addrs.len() {
+            ss = ss_client.get_status(&addrs[a]);    
+            println!("Status: {:?}", ss.status);
+        }
 
-        println!("x: {:?}", x);
-
-        std::thread::sleep(std::time::Duration::from_millis(1_000));
+        std::thread::sleep(std::time::Duration::from_millis(60_000));
     }
 
 }

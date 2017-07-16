@@ -1,4 +1,4 @@
-use bincode::{serialize, Infinite};
+use bincode::{serialize, deserialize, Infinite};
 
 use leveldb::database::Database;
 use leveldb::kv::KV;
@@ -6,6 +6,8 @@ use leveldb::iterator::Iterable;
 use leveldb::options::{Options,WriteOptions,ReadOptions};
 
 use std::path::Path;
+
+use serde_json;
 
 #[derive(Serialize, Deserialize)]
 pub struct SSDeposit {
@@ -58,6 +60,15 @@ impl TokenDB {
       data
   } 
 
+  pub fn delete_deposit(&self, key: i32) -> () {
+      let write_opts = WriteOptions::new();
+      let res = self.db.delete(write_opts, key);
+      let data = match res {
+        Ok(_) => { () },
+        Err(e) => { panic!("failed deleting data: {:?}", e) }
+      };
+  }   
+
   pub fn dump(&self) -> Vec<Vec<u8>> {
       let read_opts = ReadOptions::new();
       let mut iter = self.db.value_iter(read_opts);
@@ -72,5 +83,20 @@ impl TokenDB {
       };
       data
   } 
+
+  pub fn dump_addrs(&self) -> Vec<String> {
+      let read_opts = ReadOptions::new();
+      let mut iter = self.db.value_iter(read_opts);
+      let mut data = vec![];
+      loop {
+          match iter.next() {
+              Some(d) => {
+                  data.push(deserialize::<SSDeposit>(&d).unwrap().address);
+                },
+                _ => { break; }
+          };
+      };
+      data
+  }   
 
 }
