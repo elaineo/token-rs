@@ -26,7 +26,7 @@ mod raw_body;
 mod token_db;
 
 use raw_body::*;
-use token_db::{TokenDB, SSDeposit};
+use token_db::{TokenDB, ShapeshiftDeposit};
 
 use gethrpc::GethRPCClient;
 use shapeshift::{ShapeshiftClient, ShapeshiftStatus};
@@ -49,15 +49,10 @@ fn main() {
 
     let x: String = client.client_version();
 
-    /*
-        Receive deposit
-        Poll deposit status until expiry
-        Delete or update
-            Send tx if warranted
-    */
-    server.post("/", middleware! { |req, res| 
+    // receive deposit, add to DB
+    server.post("/add", middleware! { |req, res| 
         let raw = req.raw_body();
-        let deposit = serde_json::from_str::<SSDeposit>(&raw).unwrap();
+        let deposit = serde_json::from_str::<ShapeshiftDeposit>(&raw).unwrap();
         db.write_deposit(&deposit);
         
         format!("Deposit Received {} {}", deposit.address, deposit.status)
@@ -72,7 +67,7 @@ fn main() {
         let data = read_db.read_deposit(key)
             .expect("Failed to lookup key");
 
-        let deposit: SSDeposit = deserialize(&data)
+        let deposit: ShapeshiftDeposit = deserialize(&data)
             .expect("Corrupted entry in db");
 
         match serde_json::to_string(&deposit) {
@@ -83,7 +78,7 @@ fn main() {
 
     server.get("/all", middleware! {
         let data = all_db.dump();
-        let deposit: Vec<SSDeposit> = data.iter().map(|x| deserialize(&x).unwrap()).collect();
+        let deposit: Vec<ShapeshiftDeposit> = data.iter().map(|x| deserialize(&x).unwrap()).collect();
         
         format!("{}", serde_json::to_string(&deposit).unwrap())
 
@@ -94,6 +89,9 @@ fn main() {
     });
 
     loop {
+        //poll address status
+        // check expiration -- if expired, Delete
+        // if funded, buy tokens
         
         let addrs = addr_db.dump_addrs();
         let mut ss: ShapeshiftStatus;

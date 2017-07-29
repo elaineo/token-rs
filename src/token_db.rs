@@ -10,17 +10,34 @@ use std::path::Path;
 use serde_json;
 
 #[derive(Serialize, Deserialize)]
-pub struct SSDeposit {
+pub struct ShapeshiftDeposit {
     pub status: String,
-    pub address: String, // new ETC address
-    pub amount: String, // ETC amount
-    pub depositAddress: String,
-    pub depositAmount: String,
-    pub coinType: String,
+    pub address: String,              // altcoin address
+    pub withdraw: Option<String>,     //[withdrawal address],
+    pub incomingCoin: Option<String>, //[amount deposited],
+    pub incomingType: Option<String>, //[coin type of deposit],
+    pub outgoingCoin: Option<String>, //[amount sent to withdrawal address],
+    pub outgoingType: Option<String>, //[coin type of withdrawal],
+    pub transaction: Option<String>,  //[transaction id of coin sent to withdrawal address],
     pub orderId: String,
     pub expiration: String,
-    pub params: Vec<String>,
     pub id: usize,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct RegisteredToken {
+    pub token_address: String,
+    pub crowdsale_address: String, 
+    pub name: String,
+    pub symbol: String,
+    pub decimal: u8,
+    pub tok_type: String,
+    pub icon: String,
+    pub url: String,
+    pub blerb: String,
+    pub date_changed: usize,
+    pub changed_by: String,
+    pub change_reason: String,
 }
 
 pub struct TokenDB {
@@ -40,7 +57,7 @@ impl TokenDB {
       }
   }
   
-  pub fn write_deposit(&self, deposit: &SSDeposit) -> () {
+  pub fn write_deposit(&self, deposit: &ShapeshiftDeposit) -> () {
       let write_opts = WriteOptions::new();
       // turn into buffer
       let bytes: Vec<u8> = serialize(deposit, Infinite).unwrap();
@@ -91,7 +108,7 @@ impl TokenDB {
       loop {
           match iter.next() {
               Some(d) => {
-                  data.push(deserialize::<SSDeposit>(&d).unwrap().address);
+                  data.push(deserialize::<ShapeshiftDeposit>(&d).unwrap().address);
                 },
                 _ => { break; }
           };
