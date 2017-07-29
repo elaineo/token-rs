@@ -90,4 +90,8 @@ impl ShapeshiftClient {
         self.rpc_request::<ShapeshiftStatus>("txStat", &address.to_string())
     }
 
+    pub fn get_time_remaining(&mut self, address: &str) -> ShapeshiftStatus {
+        self.rpc_request::<ShapeshiftStatus>("timeremaining", &address.to_string())
+    }
+
 }

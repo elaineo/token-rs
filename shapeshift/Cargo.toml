@@ -2,7 +2,7 @@
 name = "shapeshift"
 version = "0.1.0"
 license = "Apache-2.0"
-authors = ["elaineo <elaine.ou@gmail.com>"]
+authors = ["elaineo <e@elaineou.com>"]
 description = "shapeshift API wrapper."
 repository = "https://github.com/elaineo/token-rs"
 
