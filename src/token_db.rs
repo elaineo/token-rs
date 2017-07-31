@@ -11,7 +11,7 @@ use serde_json;
 
 #[derive(Serialize, Deserialize)]
 pub struct ShapeshiftDeposit {
-    pub status: String,
+    pub status: Option<String>,
     pub address: String,              // altcoin address
     pub withdraw: Option<String>,     //[withdrawal address],
     pub incomingCoin: Option<String>, //[amount deposited],
@@ -20,7 +20,7 @@ pub struct ShapeshiftDeposit {
     pub outgoingType: Option<String>, //[coin type of withdrawal],
     pub transaction: Option<String>,  //[transaction id of coin sent to withdrawal address],
     pub orderId: String,
-    pub expiration: String,
+    pub expiration: usize,
     pub id: usize,
 }
 

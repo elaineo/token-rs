@@ -17,7 +17,7 @@ use bincode::deserialize;
 use std::path::Path;
 use std::sync::Arc;
 
-use nickel::{Nickel, HttpRouter, Request, Response, MiddlewareResult};
+use nickel::{Nickel, HttpRouter, Request, Response, MiddlewareResult, MediaType};
 use nickel::status::StatusCode;
 use hyper::header::{AccessControlAllowOrigin, AccessControlAllowHeaders,AccessControlAllowMethods, ContentType};
 use hyper::method::Method;
@@ -31,8 +31,14 @@ mod token_db;
 use raw_body::*;
 use token_db::{TokenDB, ShapeshiftDeposit};
 
-use gethrpc::GethRPCClient;
+use gethrpc::{GethRPCClient};
 use shapeshift::{ShapeshiftClient, ShapeshiftStatus};
+
+#[derive(Serialize, Deserialize)]
+struct RPCResponse {
+    result: String,
+    id: usize,
+}
 
 const DEFAULT_DIR: &'static str = "./tokendb";
 
@@ -70,11 +76,6 @@ fn main() {
     server.utilize(enable_cors);
     server.options("**/*", enable_options_preflight);
 
-    server.post("/add", middleware! { |request, response|
-        (StatusCode::Ok, "Ok")
-    });
-
-
     let path = Path::new(DEFAULT_DIR);
     let db = Arc::new(TokenDB::new(path));
     let read_db = db.clone();
@@ -89,12 +90,18 @@ fn main() {
     let x: String = client.client_version();
 
     // receive deposit, add to DB
-    server.post("/foo", middleware! { |req, res| 
+    server.post("/add", middleware! { |req, res| 
         let raw = req.raw_body();
         let deposit = serde_json::from_str::<ShapeshiftDeposit>(&raw).unwrap();
         db.write_deposit(&deposit);
         
-        format!("Deposit Received {} {}", deposit.address, deposit.status)
+        println!("Deposit Received {}", deposit.address);
+        
+        //let json_obj = json::encode(&v).unwrap();
+        //res.set(MediaType::Json);
+        //res.set(StatusCode::Ok);
+        //return res.send(json_obj);
+        (StatusCode::Ok, "{\"result\": \"ok\"}")
     });
 
     server.get("/key/:id", middleware! { |req|
