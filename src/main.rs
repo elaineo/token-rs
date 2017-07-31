@@ -10,14 +10,17 @@ extern crate serde_derive;
 
 extern crate bincode;
 extern crate leveldb;
+extern crate hyper;
 
 use bincode::deserialize;
 
 use std::path::Path;
 use std::sync::Arc;
 
-use nickel::{Nickel, HttpRouter};
+use nickel::{Nickel, HttpRouter, Request, Response, MiddlewareResult};
 use nickel::status::StatusCode;
+use hyper::header::{AccessControlAllowOrigin, AccessControlAllowHeaders,AccessControlAllowMethods, ContentType};
+use hyper::method::Method;
 
 use std::thread;
 use std::time::Duration;
@@ -33,8 +36,44 @@ use shapeshift::{ShapeshiftClient, ShapeshiftStatus};
 
 const DEFAULT_DIR: &'static str = "./tokendb";
 
+fn enable_cors<'mw>(_req: &mut Request, mut res: Response<'mw>) -> MiddlewareResult<'mw> {
+    res.set(AccessControlAllowOrigin::Any);
+
+    res.set(AccessControlAllowMethods(vec![
+        Method::Get,
+        Method::Post,
+        Method::Options,
+        Method::Delete,
+        ])
+    );
+    res.set(AccessControlAllowHeaders(vec![
+    // Hyper uses the `unicase::Unicase` type to ensure comparisons are done
+    // case-insensitively. Here, we use `into()` to convert to one from a `&str`
+    // so that we don't have to import the type ourselves.
+    "Origin".into(),
+    "X-Requested-With".into(),
+    "Content-Type".into(),
+    "Accept".into(),
+    ]));
+    res.next_middleware()
+}
+fn enable_options_preflight<'mw>(_req: &mut Request, mut res: Response<'mw>) -> MiddlewareResult<'mw> {
+    // Set HTTP 200.
+    // ContentType should be text/plain.
+    res.set(ContentType::plaintext());
+    // Just "ok" as response text.
+    res.send("Ok")
+}
+
 fn main() {
     let mut server = Nickel::new();
+    server.utilize(enable_cors);
+    server.options("**/*", enable_options_preflight);
+
+    server.post("/add", middleware! { |request, response|
+        (StatusCode::Ok, "Ok")
+    });
+
 
     let path = Path::new(DEFAULT_DIR);
     let db = Arc::new(TokenDB::new(path));
@@ -50,7 +89,7 @@ fn main() {
     let x: String = client.client_version();
 
     // receive deposit, add to DB
-    server.post("/add", middleware! { |req, res| 
+    server.post("/foo", middleware! { |req, res| 
         let raw = req.raw_body();
         let deposit = serde_json::from_str::<ShapeshiftDeposit>(&raw).unwrap();
         db.write_deposit(&deposit);
@@ -97,10 +136,10 @@ fn main() {
         let mut ss: ShapeshiftStatus;
         for a in 0..addrs.len() {
             ss = ss_client.get_status(&addrs[a]);    
-            println!("Status: {:?}", ss.status);
+            println!("Status of {:?}: {:?}", ss.address, ss.status);
         }
 
-        std::thread::sleep(std::time::Duration::from_millis(60_000));
+        std::thread::sleep(std::time::Duration::from_millis(1_000));
     }
 
 }
