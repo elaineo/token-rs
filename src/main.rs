@@ -11,19 +11,19 @@ extern crate serde_derive;
 extern crate bincode;
 extern crate leveldb;
 extern crate hyper;
+extern crate time;
 
 use bincode::deserialize;
 
 use std::path::Path;
 use std::sync::Arc;
 
-use nickel::{Nickel, HttpRouter, Request, Response, MiddlewareResult, MediaType};
+use nickel::{Nickel, HttpRouter, Request, Response, MiddlewareResult};
 use nickel::status::StatusCode;
-use hyper::header::{AccessControlAllowOrigin, AccessControlAllowHeaders,AccessControlAllowMethods, ContentType};
+use hyper::header::{AccessControlAllowOrigin, AccessControlAllowHeaders, AccessControlAllowMethods, ContentType};
 use hyper::method::Method;
 
 use std::thread;
-use std::time::Duration;
 
 mod raw_body;
 mod token_db;
@@ -64,10 +64,7 @@ fn enable_cors<'mw>(_req: &mut Request, mut res: Response<'mw>) -> MiddlewareRes
     res.next_middleware()
 }
 fn enable_options_preflight<'mw>(_req: &mut Request, mut res: Response<'mw>) -> MiddlewareResult<'mw> {
-    // Set HTTP 200.
-    // ContentType should be text/plain.
     res.set(ContentType::plaintext());
-    // Just "ok" as response text.
     res.send("Ok")
 }
 
@@ -80,7 +77,7 @@ fn main() {
     let db = Arc::new(TokenDB::new(path));
     let read_db = db.clone();
     let all_db = db.clone();
-    let addr_db = db.clone();
+    let poll_db = db.clone();
 
     let client_addr = "https://mewapi.epool.io";
     
@@ -95,8 +92,7 @@ fn main() {
         let deposit = serde_json::from_str::<ShapeshiftDeposit>(&raw).unwrap();
         db.write_deposit(&deposit);
         
-        println!("Deposit Received {}", deposit.address);
-        
+        //let v = "{\"result\": \"ok\"}".to_string();
         //let json_obj = json::encode(&v).unwrap();
         //res.set(MediaType::Json);
         //res.set(StatusCode::Ok);
@@ -127,7 +123,6 @@ fn main() {
         let deposit: Vec<ShapeshiftDeposit> = data.iter().map(|x| deserialize(&x).unwrap()).collect();
         
         format!("{}", serde_json::to_string(&deposit).unwrap())
-
     });
    
     thread::spawn(|| {
@@ -139,11 +134,18 @@ fn main() {
         // check expiration -- if expired, Delete
         // if funded, buy tokens
         
-        let addrs = addr_db.dump_addrs();
         let mut ss: ShapeshiftStatus;
-        for a in 0..addrs.len() {
-            ss = ss_client.get_status(&addrs[a]);    
+        let timespec = time::get_time();
+        let now = timespec.sec + timespec.nsec as i64 / 1000 / 1000;
+        let data = poll_db.dump();
+        let deposit_full: Vec<ShapeshiftDeposit> = data.iter().map(|x| deserialize(&x).unwrap()).collect();
+        for d in 0..deposit_full.len() {
+            ss = ss_client.get_status(&deposit_full[d].deposit);
+            println!("Time: {:?}", now);
             println!("Status of {:?}: {:?}", ss.address, ss.status);
+            if now*1000 > deposit_full[d].expiration as i64 {
+                poll_db.delete_deposit(deposit_full[d].id as i32);
+            }
         }
 
         std::thread::sleep(std::time::Duration::from_millis(1_000));
