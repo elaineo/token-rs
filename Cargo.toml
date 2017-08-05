@@ -5,6 +5,7 @@ authors = ["elaineo <elaine.ou@gmail.com>"]
 
 [dependencies]
 bincode = "0.8.0"
+emerald-core = { git = "https://github.com/elaineo/emerald-rs"}
 hyper = "0.10.9"
 nickel = "*"
 leveldb = "*"

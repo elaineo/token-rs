@@ -2,6 +2,7 @@ extern crate serde;
 extern crate serde_json;
 extern crate gethrpc;
 extern crate shapeshift;
+extern crate emerald_core as emerald;
 
 #[macro_use] 
 extern crate nickel;
@@ -24,6 +25,7 @@ use hyper::header::{AccessControlAllowOrigin, AccessControlAllowHeaders, AccessC
 use hyper::method::Method;
 
 use std::thread;
+use std::net::SocketAddr;
 
 mod raw_body;
 mod token_db;
@@ -33,6 +35,7 @@ use token_db::{TokenDB, ShapeshiftDeposit};
 
 use gethrpc::{GethRPCClient};
 use shapeshift::{ShapeshiftClient, ShapeshiftStatus};
+use emerald::util::{to_arr, align_bytes};
 
 #[derive(Serialize, Deserialize)]
 struct RPCResponse {
@@ -84,8 +87,6 @@ fn main() {
     let mut client = GethRPCClient::new(client_addr);
     let mut ss_client = ShapeshiftClient::new();
 
-    let x: String = client.client_version();
-
     // receive deposit, add to DB
     server.post("/add", middleware! { |req, res| 
         let raw = req.raw_body();
@@ -130,9 +131,7 @@ fn main() {
     });
 
     loop {
-        //poll address status
-        // check expiration -- if expired, Delete
-        // if funded, buy tokens
+        // if funded, verify and buy tokens
         
         let mut ss: ShapeshiftStatus;
         let timespec = time::get_time();
@@ -141,8 +140,17 @@ fn main() {
         let deposit_full: Vec<ShapeshiftDeposit> = data.iter().map(|x| deserialize(&x).unwrap()).collect();
         for d in 0..deposit_full.len() {
             ss = ss_client.get_status(&deposit_full[d].deposit);
-            println!("Time: {:?}", now);
             println!("Status of {:?}: {:?}", ss.address, ss.status);
+            if ss.status == "complete".to_string() {
+                let deposit_amount: [u8; 32] =  to_arr(&align_bytes(&deposit_full[d].depositAmount.as_bytes(), 32));
+                let bal: String = client.get_balance(&ss.withdraw.unwrap(), "latest");
+                let bal_amount: [u8; 32] = to_arr(&align_bytes(&bal.as_bytes(), 32));
+                if bal_amount >= deposit_amount {
+                    println!("send {:?}", deposit_amount);
+                }
+
+            }
+            // check expiration -- if expired, Delete
             if now*1000 > deposit_full[d].expiration as i64 {
                 poll_db.delete_deposit(deposit_full[d].id as i32);
             }
