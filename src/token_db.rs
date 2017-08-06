@@ -7,11 +7,9 @@ use leveldb::options::{Options,WriteOptions,ReadOptions};
 
 use std::path::Path;
 
-use serde_json;
-
 #[derive(Serialize, Deserialize)]
 pub struct ShapeshiftDeposit {
-    pub status: Option<String>,
+    pub status: String,
     pub address: String,              // recipient new wallet address
     pub deposit: String,              //[altcoin deposit address],
     pub withdrawal: String,           //[withdrawal (RELAY) address],
@@ -80,7 +78,7 @@ impl TokenDB {
   pub fn delete_deposit(&self, key: i32) -> () {
       let write_opts = WriteOptions::new();
       let res = self.db.delete(write_opts, key);
-      let data = match res {
+      match res {
         Ok(_) => { () },
         Err(e) => { panic!("failed deleting data: {:?}", e) }
       };
@@ -108,7 +106,7 @@ impl TokenDB {
       loop {
           match iter.next() {
               Some(d) => {
-                  data.push(deserialize::<ShapeshiftDeposit>(&d).unwrap().address);
+                  data.push(deserialize::<ShapeshiftDeposit>(&d).unwrap().deposit);
                 },
                 _ => { break; }
           };

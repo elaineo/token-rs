@@ -25,7 +25,6 @@ use hyper::header::{AccessControlAllowOrigin, AccessControlAllowHeaders, AccessC
 use hyper::method::Method;
 
 use std::thread;
-use std::net::SocketAddr;
 
 mod raw_body;
 mod token_db;
@@ -36,6 +35,7 @@ use token_db::{TokenDB, ShapeshiftDeposit};
 use gethrpc::{GethRPCClient};
 use shapeshift::{ShapeshiftClient, ShapeshiftStatus};
 use emerald::util::{to_arr, align_bytes};
+use emerald::Transaction;
 
 #[derive(Serialize, Deserialize)]
 struct RPCResponse {
@@ -90,14 +90,10 @@ fn main() {
     // receive deposit, add to DB
     server.post("/add", middleware! { |req, res| 
         let raw = req.raw_body();
-        let deposit = serde_json::from_str::<ShapeshiftDeposit>(&raw).unwrap();
+        let mut deposit = serde_json::from_str::<ShapeshiftDeposit>(&raw).unwrap();
+        deposit.status = "no_deposits".to_string();
         db.write_deposit(&deposit);
         
-        //let v = "{\"result\": \"ok\"}".to_string();
-        //let json_obj = json::encode(&v).unwrap();
-        //res.set(MediaType::Json);
-        //res.set(StatusCode::Ok);
-        //return res.send(json_obj);
         (StatusCode::Ok, "{\"result\": \"ok\"}")
     });
 
@@ -139,6 +135,9 @@ fn main() {
         let data = poll_db.dump();
         let deposit_full: Vec<ShapeshiftDeposit> = data.iter().map(|x| deserialize(&x).unwrap()).collect();
         for d in 0..deposit_full.len() {
+            if deposit_full[d].status == "complete" {
+                continue;
+            }
             ss = ss_client.get_status(&deposit_full[d].deposit);
             println!("Status of {:?}: {:?}", ss.address, ss.status);
             if ss.status == "complete".to_string() {
