@@ -7,7 +7,7 @@ use leveldb::options::{Options,WriteOptions,ReadOptions};
 
 use std::path::Path;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ShapeshiftDeposit {
     pub status: String,
     pub address: String,              // recipient new wallet address
