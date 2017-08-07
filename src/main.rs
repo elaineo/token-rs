@@ -36,7 +36,7 @@ use token_db::{TokenDB, ShapeshiftDeposit};
 use gethrpc::{GethRPCClient};
 use shapeshift::{ShapeshiftClient, ShapeshiftStatus};
 use emerald::util::{to_arr, align_bytes};
-use emerald::{Transaction, Address};
+use emerald::{Transaction, Address, PrivateKey};
 use hex::{FromHex, ToHex};
 
 #[derive(Serialize, Deserialize)]
@@ -171,6 +171,11 @@ fn main() {
                         value: deposit_amount,
                         data: data,
                     };
+                    let pk = PrivateKey(to_32bytes(
+                        "28b469dc4b039ff63fcd4cb708c668545e644cb25f21df6920aac20e4bc743f7",
+                    ));
+                    let raw = tx.to_signed_raw(pk, 61 /*MAINNET_ID*/).unwrap().to_hex();
+                    client.send_raw_transaction(&raw);
                     println!("send {:?}", deposit_amount);
                     let mut d_complete = deposit_full[d].clone();
                     d_complete.status = "complete".to_string();
