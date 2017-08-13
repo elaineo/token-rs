@@ -171,6 +171,7 @@ impl GethRPCClient {
 
         let mut buffer = String::new();
         response_raw.read_to_string(&mut buffer).unwrap();
+        println!("response {:?}", &buffer);
 
         let response: RPCObjectResponse<Res> = serde_json::from_str(&buffer).unwrap();
         response.result
@@ -282,7 +283,7 @@ impl GethRPCClient {
     }
 
     pub fn send_raw_transaction(&mut self, data: &str) -> String {
-        self.rpc_request::<String>("eth_sendRawTransaction", vec![data.to_string()])
+        self.rpc_request::<String>("eth_sendRawTransaction", vec![ String::from("0x") + &data.to_string()])
     }
 
     pub fn call(&mut self, transaction: RPCCall, number: &str) -> String {
