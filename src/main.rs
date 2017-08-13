@@ -47,10 +47,15 @@ struct RPCResponse {
 
 const DEFAULT_DIR: &'static str = "./tokendb";
 
+// ec8ac4d8 buyTokens(address)
 const ICO_MACHINE: &'static str = "0x2f846034a256f51ae51249b61f4c92bcf4b0a3d8";
 
 // TODO: Generate new one for each tx
-const RELAY_ACCOUNT: &'static str = "0xE4cf8aE5E9Cdc78d0d339877f05CD190Cc6f4d54";                             
+const RELAY_ACCOUNT: &'static str = "0xE4cf8aE5E9Cdc78d0d339877f05CD190Cc6f4d54";
+
+// Ropsten private key 
+// TODO: fetch from env
+const PK: &'static str = "beaed1cc16e409c72918ed71fdb11df055a3f787534d7a6946770f7e18697496";        
 
 fn enable_cors<'mw>(_req: &mut Request, mut res: Response<'mw>) -> MiddlewareResult<'mw> {
     res.set(AccessControlAllowOrigin::Any);
@@ -93,7 +98,8 @@ fn main() {
     let all_db = db.clone();
     let poll_db = db.clone();
 
-    let client_addr = "https://mewapi.epool.io";
+    //let client_addr = "https://mewapi.epool.io";
+    let client_addr = "https://ropsten.infura.io/mew"; //testnet
     
     let mut client = GethRPCClient::new(client_addr);
     let mut ss_client = ShapeshiftClient::new();
@@ -156,8 +162,15 @@ fn main() {
                 let bal: String = client.get_balance(&ss.withdraw.unwrap(), "latest");
                 let bal_amount: [u8; 32] = to_arr(&align_bytes(&bal.as_bytes(), 32));
                 if bal_amount >= deposit_amount {
-                    let gas_price = to_32bytes(&client.gas_price());
+                    let mut x: String = client.gas_price().to_string(); // as u64
+                    x = x.split_at(2).1.to_string();
+                    if x.len() % 2 == 1 {
+                        x = String::from("0") + &x;
+                    }
+                    println!("gas price: {:?}", x);
+                    let gas_price = to_arr(&align_bytes(&x.as_bytes(), 32));
                     let nonce: u64 = client.get_transaction_count(RELAY_ACCOUNT, "latest")
+                        .split_at(2).1.to_string()
                         .parse()
                         .expect("Failed to parse nonce");
                     let data = align_bytes(&deposit_full[d].address.as_bytes(), 64);
@@ -171,12 +184,9 @@ fn main() {
                         value: deposit_amount,
                         data: data,
                     };
-                    let pk = PrivateKey(to_32bytes(
-                        "28b469dc4b039ff63fcd4cb708c668545e644cb25f21df6920aac20e4bc743f7",
-                    ));
-                    let raw = tx.to_signed_raw(pk, 61 /*MAINNET_ID*/).unwrap().to_hex();
+                    let pk = PrivateKey(to_32bytes(PK));
+                    let raw = tx.to_signed_raw(pk, 3 /*ROPSTEN_ID*/).unwrap().to_hex();
                     client.send_raw_transaction(&raw);
-                    println!("send {:?}", deposit_amount);
                     let mut d_complete = deposit_full[d].clone();
                     d_complete.status = "complete".to_string();
                     poll_db.write_deposit(&d_complete);
